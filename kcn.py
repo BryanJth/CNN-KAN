@@ -1,52 +1,46 @@
+# kcn.py
 import torch
 import torch.nn as nn
-from torchvision import  models
-import gc
-import matplotlib.pyplot as plt
-import math
+from torchvision import models
 
-from CNN_KAN.kan_layer import KANLinear 
+from CNN_KAN.kan_layer import KANLinear  # absolute import via package
 
 class ConvNeXtKAN(nn.Module):
-    def __init__(self):
-        super(ConvNeXtKAN, self).__init__()
-        # Load pre-trained ConvNeXt model
-        self.convnext = models.convnext_tiny(pretrained=True)
+    def __init__(self, num_classes: int = 10, freeze_backbone: bool = True):
+        super().__init__()
 
-        # Freeze ConvNeXt layers 
-        for param in self.convnext.parameters():
-            param.requires_grad = False
+        # gunakan pretrained weights yang benar
+        try:
+            weights = models.ConvNeXt_Tiny_Weights.IMAGENET1K_V1
+            self.convnext = models.convnext_tiny(weights=weights)
+        except Exception:
+            # fallback untuk versi torchvision lama
+            self.convnext = models.convnext_tiny(pretrained=True)
 
-        # Modify the classifier part of ConvNeXt
-        num_features = self.convnext.classifier[2].in_features
-        self.convnext.classifier = nn.Identity()
+        if freeze_backbone:
+            for p in self.convnext.parameters():
+                p.requires_grad = False
 
+        # Ambil dimensi fitur dari fully-connected terakhir dan matikan FC-nya
+        # classifier = [LayerNorm2d(768, ...), Flatten(1), Linear(768, 1000)]
+        num_features = self.convnext.classifier[-1].in_features
+        self.convnext.classifier[-1] = nn.Identity()   # buang Linear(…, 1000)
+        # Sampai di sini, forward convnext akan mengembalikan vektor 768 (sudah flatten)
+
+        # Head KAN
         self.kan1 = KANLinear(num_features, 256)
-        self.kan2 = KANLinear(256, 10)
+        self.kan2 = KANLinear(256, num_classes)
 
     def forward(self, x):
-        x = self.convnext(x)
-        x = x.view(x.size(0), -1)  # Flatten the tensor
+        x = self.convnext(x)   # shape [B, 768]
         x = self.kan1(x)
         x = self.kan2(x)
         return x
 
-def print_parameter_details(model):
-    total_params = 0
-    for name, parameter in model.named_parameters():
-        if parameter.requires_grad:
-            params = parameter.numel()  # Number of elements in the tensor
-            total_params += params
-            print(f"{name}: {params}")
-    print(f"Total trainable parameters: {total_params}")
-    
-from models import ConvNeXt
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ConvNeXt().to(device)
-# print(model)
-print_parameter_details(model)
-
-# summary(model, input_size=(3, 224, 224))
-
-
+def print_parameter_details(model: nn.Module):
+    total = 0
+    for n, p in model.named_parameters():
+        if p.requires_grad:
+            total += p.numel()
+            print(f"{n}: {p.numel()}")
+    print(f"Total trainable parameters: {total}")
