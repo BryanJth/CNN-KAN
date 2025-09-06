@@ -5,7 +5,7 @@ import gc
 import matplotlib.pyplot as plt
 import math
 
-from kan import KANLinear
+from kan_layer import KANLinear
 
 class ConvNeXtKAN(nn.Module):
     def __init__(self):
@@ -46,4 +46,5 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = ConvNeXt().to(device)
 # print(model)
 print_parameter_details(model)
+
 # summary(model, input_size=(3, 224, 224))
