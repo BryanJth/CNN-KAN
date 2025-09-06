@@ -5,7 +5,7 @@ import gc
 import matplotlib.pyplot as plt
 import math
 
-from kan_layer import KANLinear
+from CNN_KAN.kan_layer import KANLinear
 
 class ConvNeXtKAN(nn.Module):
     def __init__(self):
@@ -48,3 +48,4 @@ model = ConvNeXt().to(device)
 print_parameter_details(model)
 
 # summary(model, input_size=(3, 224, 224))
+
